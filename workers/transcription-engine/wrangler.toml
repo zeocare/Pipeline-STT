@@ -1,0 +1,31 @@
+name = "stt-transcription-engine"
+compatibility_date = "2024-11-01"
+main = "src/index.ts"
+
+[vars]
+ENVIRONMENT = "production"
+AZURE_OPENAI_ENDPOINT = "https://your-azure-openai.openai.azure.com"
+AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
+WHISPER_MODEL = "whisper-1"
+MAX_RETRIES = "3"
+TIMEOUT_MS = "300000"
+
+[secrets]
+AZURE_OPENAI_API_KEY = "your-azure-openai-api-key"
+INTER_WORKER_TOKEN = "your-inter-worker-authentication-token"
+
+[[kv_namespaces]]
+binding = "STT_JOBS"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+[[r2_buckets]]
+binding = "AUDIO_STORAGE"
+bucket_name = "stt-audio-chunks"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+AZURE_OPENAI_ENDPOINT = "https://your-dev-azure-openai.openai.azure.com"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"

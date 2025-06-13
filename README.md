@@ -75,28 +75,38 @@ python transcribe_cli.py audios/ --format json
 python transcribe_cli.py entrevista.wav --speakers 2
 ```
 
-### **Método 2: API (Planejado)**
+### **Método 2: API Cloudflare Workers (IMPLEMENTADO)**
 ```bash
 # Upload e transcrição
-curl -X POST "https://api.stt-pipeline.com/transcribe" \
+curl -X POST "https://stt-upload-processor.your-domain.workers.dev/upload" \
   -F "audio=@consulta.mp3" \
   -F "options={\"speakers\":2,\"format\":\"medical_json\"}"
 
 # Status do job
-curl "https://api.stt-pipeline.com/status/{jobId}"
+curl "https://stt-upload-processor.your-domain.workers.dev/status/{jobId}"
 
-# Download resultado
-curl "https://api.stt-pipeline.com/results/{jobId}"
+# Download resultado JSON
+curl "https://stt-assembly-ner.your-domain.workers.dev/download/{jobId}/json"
+
+# Download resultado TXT
+curl "https://stt-assembly-ner.your-domain.workers.dev/download/{jobId}/txt"
+
+# Download Medical JSON
+curl "https://stt-assembly-ner.your-domain.workers.dev/download/{jobId}/medical_json"
 ```
 
 ## 📁 **Estrutura do Projeto**
 
 ```
 Pipeline-STT/
-├── stt_processor/          # Engine principal de transcrição
+├── stt_processor/          # Engine principal de transcrição (Local)
 │   ├── main.py            # STTProcessor com Whisper+WhisperX
 │   ├── models.py          # Modelos de dados
 │   └── config.py          # Configurações
+├── workers/               # Cloudflare Workers (Cloud)
+│   ├── upload-processor/  # Worker 1: Upload & Chunking
+│   ├── transcription-engine/ # Worker 2: Azure OpenAI Whisper
+│   └── assembly-ner/      # Worker 3: Assembly & Medical NER
 ├── transcribe_cli.py      # Interface CLI
 ├── STT_ARCHITECTURE.md    # Documentação técnica detalhada
 ├── CLAUDE.md             # Instruções para desenvolvimento
@@ -194,19 +204,70 @@ python transcribe_cli.py test
 - [x] CLI funcional
 - [x] Outputs estruturados
 
-### **🚧 Fase 2: Cloud Pipeline (Em Desenvolvimento)**
-- [ ] Cloudflare Workers para upload
-- [ ] Azure OpenAI integration
-- [ ] API REST completa
-- [ ] Medical NER avançado
-- [ ] Dashboard web
+### **✅ Fase 2: Cloud Pipeline (IMPLEMENTADO)**
+- [x] **3 Cloudflare Workers** totalmente funcionais
+- [x] **Azure OpenAI Whisper** integration completa
+- [x] **API REST** com endpoints production-ready
+- [x] **Medical NER avançado** com Azure AI + custom dictionaries
+- [x] **Job management** com KV storage e R2 buckets
+- [x] **Inter-worker authentication** e error handling
+- [x] **Multiple output formats** (JSON, TXT, SRT, Medical JSON)
 
-### **📅 Fase 3: Produção (Planejado)**
-- [ ] Auto-scaling
-- [ ] Monitoring avançado
-- [ ] Integração EMR
-- [ ] Mobile apps
-- [ ] Analytics dashboard
+### **📅 Fase 3: Deploy & Produção (Próximos Passos)**
+- [ ] **Deploy Workers** para Cloudflare (wrangler deploy)
+- [ ] **Configurar Azure OpenAI** credentials
+- [ ] **Setup R2 buckets** e KV namespaces
+- [ ] **Testar pipeline** end-to-end
+- [ ] **Dashboard de monitoramento**
+- [ ] **Integração EMR** (opcional)
+
+## 🚀 **Deploy Cloudflare Workers**
+
+### **1. Install Wrangler CLI**
+```bash
+npm install -g wrangler
+wrangler login
+```
+
+### **2. Deploy Workers**
+```bash
+# Deploy Worker 1: Upload Processor
+cd workers/upload-processor
+npm install
+wrangler deploy
+
+# Deploy Worker 2: Transcription Engine  
+cd ../transcription-engine
+npm install
+wrangler deploy
+
+# Deploy Worker 3: Assembly & NER
+cd ../assembly-ner
+npm install
+wrangler deploy
+```
+
+### **3. Configure Secrets**
+```bash
+# Set Azure OpenAI API Key
+wrangler secret put AZURE_OPENAI_API_KEY
+
+# Set Inter-Worker Authentication Token
+wrangler secret put INTER_WORKER_TOKEN
+
+# Set Azure AI API Key (for NER)
+wrangler secret put AZURE_AI_API_KEY
+```
+
+### **4. Create KV Namespace & R2 Buckets**
+```bash
+# Create KV namespace for job management
+wrangler kv:namespace create "STT_JOBS"
+
+# Create R2 buckets for storage
+wrangler r2 bucket create stt-audio-chunks
+wrangler r2 bucket create stt-results
+```
 
 ## 🤝 **Contribuição**
 

@@ -1,0 +1,24 @@
+name = "stt-upload-processor"
+compatibility_date = "2024-11-01"
+main = "src/index.ts"
+
+[vars]
+ENVIRONMENT = "production"
+MAX_FILE_SIZE_MB = "500"
+CHUNK_SIZE_MB = "25"
+SUPPORTED_FORMATS = "mp3,wav,m4a,flac,ogg,mp4,avi,mov"
+
+[[kv_namespaces]]
+binding = "STT_JOBS"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+[[r2_buckets]]
+binding = "AUDIO_STORAGE"
+bucket_name = "stt-audio-chunks"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"

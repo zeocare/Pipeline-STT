@@ -1,0 +1,32 @@
+name = "stt-assembly-ner"
+compatibility_date = "2024-11-01"
+main = "src/index.ts"
+
+[vars]
+ENVIRONMENT = "production"
+AZURE_AI_ENDPOINT = "https://your-azure-ai.cognitiveservices.azure.com"
+AZURE_AI_API_VERSION = "2023-04-01"
+OPENAI_API_ENDPOINT = "https://api.openai.com/v1"
+MAX_RETRIES = "3"
+TIMEOUT_MS = "300000"
+
+[secrets]
+AZURE_AI_API_KEY = "your-azure-ai-api-key"
+OPENAI_API_KEY = "your-openai-api-key"
+INTER_WORKER_TOKEN = "your-inter-worker-authentication-token"
+
+[[kv_namespaces]]
+binding = "STT_JOBS"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+[[r2_buckets]]
+binding = "RESULTS_STORAGE"
+bucket_name = "stt-results"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+AZURE_AI_ENDPOINT = "https://your-dev-azure-ai.cognitiveservices.azure.com"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"

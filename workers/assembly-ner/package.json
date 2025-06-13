@@ -1,0 +1,27 @@
+{
+  "name": "stt-assembly-ner",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for STT assembly and medical NER",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "tail": "wrangler tail",
+    "test": "vitest",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240512.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "wrangler": "^3.42.0"
+  },
+  "keywords": ["cloudflare", "workers", "stt", "assembly", "ner", "medical"],
+  "author": "STT Pipeline Team",
+  "license": "MIT"
+}
