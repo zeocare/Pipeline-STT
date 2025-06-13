@@ -11,8 +11,8 @@ SUPPORTED_FORMATS = "mp3,wav,m4a,flac,ogg,mp4,avi,mov"
 
 [[kv_namespaces]]
 binding = "STT_JOBS"
-id = "b8e5f5a1234567890abcdef1234567890"
-preview_id = "b8e5f5a1234567890abcdef1234567891"
+id = "0c67436e3e304e1eb111f20b6b951928"
+preview_id = "596acaf3c2d14ce2b1aef43d1eed2a36"
 
 [[r2_buckets]]
 binding = "AUDIO_STORAGE"
