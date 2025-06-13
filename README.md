@@ -1,301 +1,246 @@
-# Pipeline STT - Speech-to-Text com Medical NER
+# STT Pipeline - Speech-to-Text para Consultas Médicas
 
-Sistema de transcrição de alta performance para consultas médicas em português brasileiro, com reconhecimento de entidades médicas e diarização de speakers.
+[![Azure](https://img.shields.io/badge/Azure-OpenAI%20%2B%20AI%20Services-blue.svg)](https://azure.microsoft.com/)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-orange.svg)](https://workers.cloudflare.com/)
+[![Portuguese](https://img.shields.io/badge/Language-Portuguese%20BR-green.svg)](https://pt.wikipedia.org/)
+[![LGPD](https://img.shields.io/badge/Compliance-LGPD-yellow.svg)](https://www.gov.br/cidadania/pt-br/acesso-a-informacao/lgpd)
 
-## 🎯 **Visão Geral**
+Pipeline moderno de Speech-to-Text com foco em consultas médicas/psiquiátricas em português brasileiro. Utiliza **Azure OpenAI** (Whisper + GPT-4o-transcribe) + **Cloudflare Workers** para transcrição, diarização de speakers e extração de entidades médicas.
 
-Pipeline STT especializado que converte áudio de consultas médicas em transcrições estruturadas com:
-- **Transcrição de alta qualidade** (>95% accuracy)
-- **Diarização de speakers** (identificação de quem falou)
-- **Reconhecimento de entidades médicas** (medicações, sintomas, dosagens)
-- **Estruturação automática** de seções da consulta
-- **Performance otimizada** (<3min para 1h de áudio)
+## 🌟 Características Principais
 
-## 🏗️ **Arquitetura**
+- **🎤 Transcrição Avançada**: Whisper Large-v3 + GPT-4o-transcribe (2025-03-20)
+- **👥 Speaker Diarization**: Identificação automática de speakers (médico/paciente)
+- **🏥 Medical NER**: Extração de medicações, sintomas, procedimentos em português
+- **📝 Múltiplos Formatos**: JSON, TXT, SRT, VTT, Medical JSON
+- **☁️ Escalável**: Cloudflare Workers + Azure AI Services
+- **🇧🇷 LGPD Compliance**: Processamento em território brasileiro
+- **⚡ Tempo Real**: Processamento de arquivos até 500MB
 
-### **Stack Tecnológico**
-- **Frontend**: Cloudflare Workers + Hono.js
-- **Transcrição**: Azure OpenAI Whisper Large-v3
-- **Diarização**: PyAnnote 3.1 via Azure ML
-- **Medical NER**: Azure AI Language + Dicionário customizado
-- **Storage**: Azure Blob Storage
-- **Monitoring**: OpenTelemetry + Azure Monitor
+## 🏗️ Arquitetura
 
-### **Pipeline de Processamento**
+```mermaid
+graph LR
+    A[Audio Upload] --> B[Upload Worker]
+    B --> C[Audio Chunking + VAD]
+    C --> D[Transcription Worker]
+    D --> E[Azure OpenAI Whisper]
+    E --> F[Assembly + NER Worker]
+    F --> G[GPT-4o-transcribe]
+    F --> H[Azure Text Analytics]
+    G --> I[Medical JSON]
+    H --> I
+    I --> J[Download URLs]
 ```
-Upload Audio → VAD + Chunking → Parallel Transcription → Speaker Diarization → Medical NER → Structured Output
-```
 
-## ⚡ **Performance**
+## 🚀 Deploy Rápido
 
-- **Velocidade**: <3 minutos para 1h de áudio
-- **Accuracy**: >95% para português brasileiro
-- **Speakers**: Identificação automática até 10 speakers
-- **Custo**: ~$0.37 por hora de áudio
-- **Escalabilidade**: 1000+ consultas simultâneas
-
-## 📊 **Output Estruturado**
-
-### **Formatos Disponíveis**
-- **JSON**: Transcrição completa com metadados
-- **TXT**: Texto limpo com speakers e timestamps  
-- **SRT/VTT**: Legendas com identificação de speakers
-- **Medical JSON**: Formato especializado com entidades médicas
-
-### **Entidades Médicas Reconhecidas**
-- 💊 **Medicações**: sertralina, clonazepam, etc.
-- 🩺 **Sintomas**: ansiedade, insônia, depressão, etc.
-- 🏥 **Procedimentos**: psicoterapia, ECT, etc.
-- 📏 **Dosagens**: 50mg, 2x ao dia, etc.
-- ⏰ **Timeframes**: há 3 semanas, desde ontem, etc.
-- 🔬 **Condições**: transtorno de ansiedade, etc.
-
-### **Seções Estruturadas**
-- **Greeting**: Cumprimentos iniciais
-- **Chief Complaint**: Queixa principal
-- **History**: Histórico e anamnese
-- **Examination**: Exame e avaliação
-- **Plan**: Plano terapêutico
-- **Closing**: Encerramento
-
-## 🚀 **Como Usar**
-
-### **Método 1: CLI Local**
+### 1. Pré-requisitos
 ```bash
-# Ativar ambiente
-source venv/bin/activate
+# Azure CLI + azd
+curl -fsSL https://aka.ms/install-azd.sh | bash
+az login
 
-# Transcrever arquivo único
-python transcribe_cli.py consulta.mp3
-
-# Processar pasta inteira
-python transcribe_cli.py audios/ --format json
-
-# Especificar número de speakers
-python transcribe_cli.py entrevista.wav --speakers 2
-```
-
-### **Método 2: API Cloudflare Workers (IMPLEMENTADO)**
-```bash
-# Upload e transcrição
-curl -X POST "https://stt-upload-processor.your-domain.workers.dev/upload" \
-  -F "audio=@consulta.mp3" \
-  -F "options={\"speakers\":2,\"format\":\"medical_json\"}"
-
-# Status do job
-curl "https://stt-upload-processor.your-domain.workers.dev/status/{jobId}"
-
-# Download resultado JSON
-curl "https://stt-assembly-ner.your-domain.workers.dev/download/{jobId}/json"
-
-# Download resultado TXT
-curl "https://stt-assembly-ner.your-domain.workers.dev/download/{jobId}/txt"
-
-# Download Medical JSON
-curl "https://stt-assembly-ner.your-domain.workers.dev/download/{jobId}/medical_json"
-```
-
-## 📁 **Estrutura do Projeto**
-
-```
-Pipeline-STT/
-├── stt_processor/          # Engine principal de transcrição (Local)
-│   ├── main.py            # STTProcessor com Whisper+WhisperX
-│   ├── models.py          # Modelos de dados
-│   └── config.py          # Configurações
-├── workers/               # Cloudflare Workers (Cloud)
-│   ├── upload-processor/  # Worker 1: Upload & Chunking
-│   ├── transcription-engine/ # Worker 2: Azure OpenAI Whisper
-│   └── assembly-ner/      # Worker 3: Assembly & Medical NER
-├── transcribe_cli.py      # Interface CLI
-├── STT_ARCHITECTURE.md    # Documentação técnica detalhada
-├── CLAUDE.md             # Instruções para desenvolvimento
-├── requirements.txt      # Dependências Python
-└── test_setup.py         # Verificação do ambiente
-```
-
-## 🔧 **Setup Ambiente**
-
-### **Pré-requisitos**
-- Python 3.11+
-- Créditos Azure OpenAI
-- Créditos Cloudflare (para deploy)
-
-### **Instalação Local**
-```bash
-# Clone do projeto
-git clone <repo-url>
-cd Pipeline-STT
-
-# Ambiente virtual
-python3 -m venv venv
-source venv/bin/activate
-
-# Dependências
-pip install -r requirements.txt
-
-# Verificação
-python test_setup.py
-python transcribe_cli.py test
-```
-
-### **Dependências Principais**
-- **Whisper**: OpenAI Whisper para transcrição
-- **WhisperX**: Speaker diarization e alinhamento
-- **PyAnnote**: Diarização avançada
-- **Azure SDK**: Integração com serviços Azure
-- **FastAPI**: Framework web para APIs
-- **Rich + Typer**: Interface CLI moderna
-
-## 🏥 **Casos de Uso**
-
-### **Consultas Psiquiátricas**
-- Transcrição automática de sessões
-- Identificação de medicações e dosagens
-- Estruturação de anamnese e plano terapêutico
-- Separação clara entre médico e paciente
-
-### **Telemedicina**
-- Transcrição em tempo real
-- Documentação automática
-- Suporte à decisão clínica
-- Auditoria e compliance
-
-### **Pesquisa Médica**
-- Análise de padrões conversacionais
-- Extração de dados clínicos
-- Estudos de efetividade terapêutica
-- Análise de linguagem médica
-
-## 🔒 **Segurança e Compliance**
-
-### **LGPD Compliance**
-- ✅ Processamento minimizado de dados
-- ✅ Consentimento explícito requerido
-- ✅ Direito ao esquecimento
-- ✅ Portabilidade de dados
-- ✅ Criptografia end-to-end
-
-### **Segurança Técnica**
-- 🔐 TLS 1.3 para transferência
-- 🗝️ AES-256 para armazenamento
-- 🛡️ Zero-trust architecture
-- 📝 Audit logs completos
-- ⏱️ Retenção automática de dados
-
-## 💰 **Custos**
-
-### **Processamento Local**
-- **Custo**: Zero (após setup)
-- **Performance**: 10-20x tempo real (CPU)
-- **Hardware**: 8-16GB RAM recomendado
-
-### **Processamento Azure (Planejado)**
-- **Custo**: ~$0.37 por hora de áudio
-- **Performance**: 0.1x tempo real (3min para 30min de áudio)
-- **Escalabilidade**: Ilimitada
-
-## 📈 **Roadmap**
-
-### **✅ Fase 1: MVP Local (Concluído)**
-- [x] Engine STT com Whisper Large-v3
-- [x] Diarização com WhisperX + PyAnnote
-- [x] Medical NER básico
-- [x] CLI funcional
-- [x] Outputs estruturados
-
-### **✅ Fase 2: Cloud Pipeline (IMPLEMENTADO)**
-- [x] **3 Cloudflare Workers** totalmente funcionais
-- [x] **Azure OpenAI Whisper** integration completa
-- [x] **API REST** com endpoints production-ready
-- [x] **Medical NER avançado** com Azure AI + custom dictionaries
-- [x] **Job management** com KV storage e R2 buckets
-- [x] **Inter-worker authentication** e error handling
-- [x] **Multiple output formats** (JSON, TXT, SRT, Medical JSON)
-
-### **📅 Fase 3: Deploy & Produção (Próximos Passos)**
-- [ ] **Deploy Workers** para Cloudflare (wrangler deploy)
-- [ ] **Configurar Azure OpenAI** credentials
-- [ ] **Setup R2 buckets** e KV namespaces
-- [ ] **Testar pipeline** end-to-end
-- [ ] **Dashboard de monitoramento**
-- [ ] **Integração EMR** (opcional)
-
-## 🚀 **Deploy Cloudflare Workers**
-
-### **1. Install Wrangler CLI**
-```bash
+# Cloudflare Wrangler
 npm install -g wrangler
 wrangler login
+
+# Node.js 18+
+node --version
 ```
 
-### **2. Deploy Workers**
+### 2. Deploy Azure Resources
 ```bash
-# Deploy Worker 1: Upload Processor
-cd workers/upload-processor
-npm install
-wrangler deploy
+git clone https://github.com/voither/Pipeline-STT.git
+cd Pipeline-STT
 
-# Deploy Worker 2: Transcription Engine  
-cd ../transcription-engine
-npm install
-wrangler deploy
-
-# Deploy Worker 3: Assembly & NER
-cd ../assembly-ner
-npm install
-wrangler deploy
+# Deploy todos os recursos Azure
+./deploy-azure.sh
 ```
 
-### **3. Configure Secrets**
+### 3. Configurar Workers
 ```bash
-# Set Azure OpenAI API Key
-wrangler secret put AZURE_OPENAI_API_KEY
+# Adicionar sua OpenAI API key em .env:
+echo "OPENAI_API_KEY=sk-your-key-here" >> .env
 
-# Set Inter-Worker Authentication Token
-wrangler secret put INTER_WORKER_TOKEN
-
-# Set Azure AI API Key (for NER)
-wrangler secret put AZURE_AI_API_KEY
+# Configurar e deployar workers
+./configure-workers.sh
 ```
 
-### **4. Create KV Namespace & R2 Buckets**
+### 4. Teste End-to-End
 ```bash
-# Create KV namespace for job management
-wrangler kv:namespace create "STT_JOBS"
-
-# Create R2 buckets for storage
-wrangler r2 bucket create stt-audio-chunks
-wrangler r2 bucket create stt-results
+# Testar pipeline completo
+./test-pipeline.sh
 ```
 
-## 🤝 **Contribuição**
+## 🔧 Recursos Criados
 
-### **Para Desenvolvedores**
-1. Fork do repositório
-2. Feature branch: `git checkout -b feature/nova-funcionalidade`
-3. Commit: `git commit -m 'Add nova funcionalidade'`
-4. Push: `git push origin feature/nova-funcionalidade`
-5. Pull Request
+### Azure Resources (Brazil + Sweden)
+- **Azure OpenAI** (Sweden Central): Whisper-1 + GPT-4o-transcribe
+- **Azure Text Analytics** (Brazil South): Medical NER em português
+- **Resource Group**: `rg-stt-pipeline`
 
-### **Para Médicos/Usuários**
-- Feedback sobre accuracy
-- Sugestões de entidades médicas
-- Casos de uso específicos
-- Teste com áudios reais
+### Cloudflare Workers
+- **Upload Processor**: `stt-upload-processor.voitherbrazil.workers.dev`
+- **Transcription Engine**: `stt-transcription-engine.voitherbrazil.workers.dev`
+- **Assembly NER**: `stt-assembly-ner.voitherbrazil.workers.dev`
 
-## 📞 **Suporte**
+## 📝 Como Usar
 
-- **Issues**: GitHub Issues para bugs e features
-- **Documentação**: Veja `STT_ARCHITECTURE.md` para detalhes técnicos
-- **Desenvolvimento**: Veja `CLAUDE.md` para instruções de dev
+### Upload de Áudio
+```bash
+curl -X POST https://stt-upload-processor.voitherbrazil.workers.dev/upload \
+  -H "X-API-Key: your-api-key" \
+  -F "audio=@consulta.mp3" \
+  -F 'options={"language":"pt","speakers":2,"format":"json"}'
+```
 
-## 📄 **Licença**
+### Verificar Status
+```bash
+curl https://stt-upload-processor.voitherbrazil.workers.dev/status/{jobId}
+```
 
-[Definir licença apropriada]
+### Download Resultados
+```bash
+curl https://stt-assembly-ner.voitherbrazil.workers.dev/download/{jobId}/medical_json
+```
+
+## 🏥 Exemplo de Saída Medical JSON
+
+```json
+{
+  "consultation": {
+    "id": "job_abc123",
+    "date": "2025-06-13T08:00:00Z",
+    "duration": 1800,
+    "participants": 2
+  },
+  "clinical_summary": {
+    "chief_complaint": "Paciente relata ansiedade e insônia há 3 semanas",
+    "assessment": "Quadro compatível com transtorno de ansiedade generalizada",
+    "plan": "Iniciar sertralina 50mg 1x ao dia, retorno em 2 semanas"
+  },
+  "medical_entities": {
+    "medications": ["sertralina"],
+    "symptoms": ["ansiedade", "insônia"],
+    "dosages": ["50mg", "1x ao dia"],
+    "timeframes": ["há 3 semanas", "retorno em 2 semanas"]
+  },
+  "quality_metrics": {
+    "transcription_confidence": 0.95,
+    "medical_entity_coverage": 0.87,
+    "completeness_score": 0.92
+  }
+}
+```
+
+## 🔐 Configuração de Segurança
+
+### Secrets Configurados
+- `AZURE_OPENAI_API_KEY`: Chave do Azure OpenAI
+- `AZURE_AI_API_KEY`: Chave do Azure Text Analytics
+- `OPENAI_API_KEY`: Chave da OpenAI (para GPT-4o)
+- `INTER_WORKER_TOKEN`: Autenticação entre workers
+- `CLIENT_API_KEY_*`: Chaves de cliente para API
+
+### LGPD Compliance
+- ✅ Processamento em território brasileiro (Azure Brazil South)
+- ✅ Redação automática de PII
+- ✅ Retenção controlada de dados
+- ✅ Logs de auditoria
+
+## 📊 Modelos e Versões
+
+| Serviço | Modelo | Versão | Região |
+|---------|--------|--------|--------|
+| Azure OpenAI | whisper-1 | 001 | Sweden Central |
+| Azure OpenAI | gpt-4o-transcribe | 2025-03-20 | Sweden Central |
+| Azure AI | Text Analytics | 2023-04-01 | Brazil South |
+
+## 🛠️ Desenvolvimento Local
+
+### Setup Ambiente Python
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Download modelos
+python -m spacy download pt_core_news_lg
+python -c "import whisper; whisper.load_model('large-v3')"
+
+# Verificar setup
+python test_setup.py
+```
+
+### Testes
+```bash
+# Testar componentes locais
+python stt_processor/main.py
+
+# Testar workers (requer deploy)
+./test-pipeline.sh
+```
+
+## 📈 Performance
+
+- **Latência**: ~2-5 minutos para arquivos de 10-30 minutos
+- **Accuracy**: >95% para português médico
+- **Concorrência**: Até 10 jobs simultâneos
+- **Tamanho Máximo**: 500MB por arquivo
+- **Formatos Suportados**: MP3, WAV, M4A, FLAC, OGG
+
+## 🔧 Monitoramento
+
+### Health Checks
+```bash
+# Verificar status dos workers
+curl https://stt-upload-processor.voitherbrazil.workers.dev/health
+curl https://stt-transcription-engine.voitherbrazil.workers.dev/health
+curl https://stt-assembly-ner.voitherbrazil.workers.dev/health
+```
+
+### Admin Dashboard
+```bash
+# Estatísticas de processamento (requer admin key)
+curl -H "X-Admin-Key: your-admin-key" \
+  https://stt-assembly-ner.voitherbrazil.workers.dev/admin/stats
+```
+
+## 🔍 Troubleshooting
+
+### Problemas Comuns
+
+1. **"Job not found"**: Verificar se o jobId está correto
+2. **"Authentication failed"**: Verificar API keys
+3. **"Transcription timeout"**: Arquivo muito grande, dividir em chunks menores
+4. **"Medical entities empty"**: Verificar se o áudio contém termos médicos
+
+### Logs
+```bash
+# Logs dos workers
+wrangler tail upload-processor
+wrangler tail transcription-engine
+wrangler tail assembly-ner
+```
+
+### Suporte
+- 📧 Issues: [GitHub Issues](https://github.com/voither/Pipeline-STT/issues)
+- 📚 Docs: [DEPLOYMENT.md](./DEPLOYMENT.md)
+- 🔧 Config: [CLAUDE.md](./CLAUDE.md)
+
+## 📄 Licença
+
+MIT License - Veja [LICENSE](LICENSE) para detalhes.
+
+## 🤝 Contribuindo
+
+1. Fork o projeto
+2. Crie sua feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
 
 ---
 
-**🎤 Pipeline STT - Transformando áudio médico em insights estruturados**
-
-*Desenvolvido com foco em qualidade, performance e compliance médico*
+**🎤➡️📝 Transformando áudio médico em insights estruturados com IA de última geração!**

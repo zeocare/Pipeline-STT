@@ -1,4 +1,5 @@
 name = "stt-upload-processor"
+route = { pattern = "stt-upload-processor.voitherbrazil.workers.dev/*", zone_name = "voitherbrazil.workers.dev" }
 compatibility_date = "2024-11-01"
 main = "src/index.ts"
 
@@ -10,12 +11,13 @@ SUPPORTED_FORMATS = "mp3,wav,m4a,flac,ogg,mp4,avi,mov"
 
 [[kv_namespaces]]
 binding = "STT_JOBS"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+id = "b8e5f5a1234567890abcdef1234567890"
+preview_id = "b8e5f5a1234567890abcdef1234567891"
 
 [[r2_buckets]]
 binding = "AUDIO_STORAGE"
 bucket_name = "stt-audio-chunks"
+preview_bucket_name = "stt-audio-chunks-dev"
 
 [env.development.vars]
 ENVIRONMENT = "development"

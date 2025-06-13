@@ -21,7 +21,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('*', logger())
 app.use('*', timing())
 app.use('*', cors({
-  origin: ['https://stt-pipeline.com', 'http://localhost:3000'],
+  origin: ['https://stt-pipeline.voitherbrazil.com', 'http://localhost:3000'],
   allowMethods: ['GET', 'POST', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400
@@ -200,13 +200,13 @@ async function triggerTranscription(env: Bindings, payload: {
 }) {
   try {
     // Call transcription worker
-    const transcriptionWorkerUrl = `https://stt-transcription-engine.${env.ENVIRONMENT === 'development' ? 'your-dev-domain' : 'your-domain'}.workers.dev`
+    const transcriptionWorkerUrl = `https://stt-transcription-engine.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
     
     const response = await fetch(`${transcriptionWorkerUrl}/process`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer your-inter-worker-token'
+        'Authorization': `Bearer ${env.INTER_WORKER_TOKEN}`
       },
       body: JSON.stringify(payload)
     })

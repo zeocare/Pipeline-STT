@@ -28,7 +28,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('*', logger())
 app.use('*', timing())
 app.use('*', cors({
-  origin: ['https://stt-pipeline.com', 'http://localhost:3000'],
+  origin: ['https://stt-pipeline.voitherbrazil.com', 'http://localhost:3000'],
   allowMethods: ['GET', 'POST', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400
@@ -118,7 +118,7 @@ app.post('/process', async (c) => {
     })
 
     // Step 4: Generate final results in multiple formats
-    const finalResults = await this.generateFinalResults({
+    const finalResults = await generateFinalResults({
       jobId,
       assembledTranscript,
       medicalEntities,
@@ -279,7 +279,7 @@ app.get('/admin/stats', async (c) => {
   try {
     // Simple admin auth (in production, use proper auth)
     const adminKey = c.req.header('x-admin-key')
-    if (adminKey !== 'your-admin-key') {
+    if (adminKey !== c.env.ADMIN_API_KEY) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
 

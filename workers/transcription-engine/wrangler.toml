@@ -1,31 +1,33 @@
 name = "stt-transcription-engine"
+route = { pattern = "stt-transcription-engine.voitherbrazil.workers.dev/*", zone_name = "voitherbrazil.workers.dev" }
 compatibility_date = "2024-11-01"
 main = "src/index.ts"
 
 [vars]
 ENVIRONMENT = "production"
-AZURE_OPENAI_ENDPOINT = "https://your-azure-openai.openai.azure.com"
+AZURE_OPENAI_ENDPOINT = "https://voither-openai-brazil.openai.azure.com"
 AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
 WHISPER_MODEL = "whisper-1"
 MAX_RETRIES = "3"
 TIMEOUT_MS = "300000"
 
-[secrets]
-AZURE_OPENAI_API_KEY = "your-azure-openai-api-key"
-INTER_WORKER_TOKEN = "your-inter-worker-authentication-token"
+# Secrets configured via: wrangler secret put <SECRET_NAME>
+# AZURE_OPENAI_API_KEY
+# INTER_WORKER_TOKEN
 
 [[kv_namespaces]]
 binding = "STT_JOBS"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+id = "b8e5f5a1234567890abcdef1234567890"
+preview_id = "b8e5f5a1234567890abcdef1234567891"
 
 [[r2_buckets]]
 binding = "AUDIO_STORAGE"
 bucket_name = "stt-audio-chunks"
+preview_bucket_name = "stt-audio-chunks-dev"
 
 [env.development.vars]
 ENVIRONMENT = "development"
-AZURE_OPENAI_ENDPOINT = "https://your-dev-azure-openai.openai.azure.com"
+AZURE_OPENAI_ENDPOINT = "https://voither-openai-brazil-dev.openai.azure.com"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"

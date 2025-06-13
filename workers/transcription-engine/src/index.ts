@@ -25,7 +25,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('*', logger())
 app.use('*', timing())
 app.use('*', cors({
-  origin: ['https://stt-pipeline.com', 'http://localhost:3000'],
+  origin: ['https://stt-pipeline.voitherbrazil.com', 'http://localhost:3000'],
   allowMethods: ['GET', 'POST', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400
@@ -262,7 +262,7 @@ async function triggerAssembly(env: Bindings, payload: {
   options: any
 }) {
   try {
-    const assemblyWorkerUrl = `https://stt-assembly-ner.${env.ENVIRONMENT === 'development' ? 'your-dev-domain' : 'your-domain'}.workers.dev`
+    const assemblyWorkerUrl = `https://stt-assembly-ner.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
     
     const response = await fetch(`${assemblyWorkerUrl}/process`, {
       method: 'POST',
