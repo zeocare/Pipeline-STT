@@ -165,8 +165,7 @@ app.post('/process', async (c) => {
   } catch (error) {
     console.error('Assembly/NER processing error:', error)
     
-    // Try to update job status to failed
-    const payload = await c.req.json().catch(() => ({}))
+    // Try to update job status to failed (using cached payload)
     if (payload.jobId) {
       const jobManager = new JobManager({ kv: c.env.STT_JOBS })
       await jobManager.markJobFailed(
@@ -361,7 +360,7 @@ async function generateFinalResults(params: {
       model_version: 'whisper-large-v3+medical-ner-v1',
       confidence: assembledTranscript.overallConfidence,
       word_count: assembledTranscript.wordCount,
-      medical_accuracy: 0.95 // Placeholder - would be calculated based on entity confidence
+      medical_entity_count: medicalEntities.medications.length + medicalEntities.symptoms.length + medicalEntities.procedures.length
     }
   }
 }

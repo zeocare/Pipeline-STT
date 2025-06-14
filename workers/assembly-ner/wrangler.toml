@@ -5,11 +5,11 @@ main = "src/index.ts"
 
 [vars]
 ENVIRONMENT = "production"
-AZURE_AI_ENDPOINT = "https://voither-cognitive-brazil.cognitiveservices.azure.com"
+AZURE_AI_ENDPOINT = "https://textanalytics-stt-voither.cognitiveservices.azure.com/"
 AZURE_AI_API_VERSION = "2023-04-01"
 OPENAI_API_ENDPOINT = "https://api.openai.com"
 MAX_RETRIES = "3"
-TIMEOUT_MS = "300000"
+TIMEOUT_MS = "600000"
 
 # Secrets configured via: wrangler secret put <SECRET_NAME>
 # AZURE_AI_API_KEY
@@ -19,8 +19,8 @@ TIMEOUT_MS = "300000"
 
 [[kv_namespaces]]
 binding = "STT_JOBS"
-id = "b8e5f5a1234567890abcdef1234567890"
-preview_id = "b8e5f5a1234567890abcdef1234567891"
+id = "0c67436e3e304e1eb111f20b6b951928"
+preview_id = "596acaf3c2d14ce2b1aef43d1eed2a36"
 
 [[r2_buckets]]
 binding = "RESULTS_STORAGE"
@@ -29,7 +29,7 @@ preview_bucket_name = "stt-results-dev"
 
 [env.development.vars]
 ENVIRONMENT = "development"
-AZURE_AI_ENDPOINT = "https://voither-cognitive-brazil-dev.cognitiveservices.azure.com"
+AZURE_AI_ENDPOINT = "https://textanalytics-stt-voither.cognitiveservices.azure.com/"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"

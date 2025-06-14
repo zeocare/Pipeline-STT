@@ -74,8 +74,8 @@ export class ResultsStorage {
           }
         })
 
-        // Generate download URL (in production, you'd use signed URLs)
-        downloadUrls[format as keyof DownloadUrls] = `https://stt-results.voitherbrazil.workers.dev/${key}`
+        // Generate download URL (using assembly worker endpoint)
+        downloadUrls[format as keyof DownloadUrls] = `https://stt-assembly-ner.voitherbrazil.workers.dev/download/${jobId}/${format}`
         
       } catch (error) {
         console.error(`Failed to store ${format} format for job ${jobId}:`, error)

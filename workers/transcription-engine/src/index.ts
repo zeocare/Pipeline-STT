@@ -119,8 +119,7 @@ app.post('/process', async (c) => {
   } catch (error) {
     console.error('Transcription processing error:', error)
     
-    // Try to update job status to failed
-    const payload = await c.req.json().catch(() => ({}))
+    // Try to update job status to failed (using cached payload)  
     if (payload.jobId) {
       const jobManager = new JobManager({ kv: c.env.STT_JOBS })
       await jobManager.markJobFailed(payload.jobId, error instanceof Error ? error.message : 'Unknown error')
@@ -261,27 +260,39 @@ async function triggerAssembly(env: Bindings, payload: {
   originalChunks: any[]
   options: any
 }) {
-  try {
-    const assemblyWorkerUrl = `https://stt-assembly-ner.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
-    
-    const response = await fetch(`${assemblyWorkerUrl}/process`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.INTER_WORKER_TOKEN}`
-      },
-      body: JSON.stringify(payload)
-    })
+  const maxRetries = 3
+  const assemblyWorkerUrl = `https://stt-assembly-ner.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${assemblyWorkerUrl}/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${env.INTER_WORKER_TOKEN}`
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000) // 30s timeout
+      })
 
-    if (!response.ok) {
-      throw new Error(`Assembly trigger failed: ${response.status}`)
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Assembly trigger failed: ${response.status} - ${errorText}`)
+      }
+
+      console.log('Assembly triggered successfully for job:', payload.jobId)
+      return // Success, exit retry loop
+      
+    } catch (error) {
+      console.error(`Assembly trigger attempt ${attempt} failed:`, error)
+      
+      if (attempt === maxRetries) {
+        throw error // Final attempt failed
+      }
+      
+      // Wait before retry (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000))
     }
-
-    console.log('Assembly triggered successfully for job:', payload.jobId)
-    
-  } catch (error) {
-    console.error('Failed to trigger assembly:', error)
-    throw error
   }
 }
 

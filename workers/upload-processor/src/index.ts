@@ -192,36 +192,47 @@ app.get('/status/:jobId', async (c) => {
   }
 })
 
-// Trigger transcription in next worker
+// Trigger transcription in next worker with retry logic
 async function triggerTranscription(env: Bindings, payload: {
   jobId: string
   chunks: any[]
   options: any
 }) {
-  try {
-    // Call transcription worker
-    const transcriptionWorkerUrl = `https://stt-transcription-engine.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
-    
-    const response = await fetch(`${transcriptionWorkerUrl}/process`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.INTER_WORKER_TOKEN}`
-      },
-      body: JSON.stringify(payload)
-    })
+  const maxRetries = 3
+  const transcriptionWorkerUrl = `https://stt-transcription-engine.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${transcriptionWorkerUrl}/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${env.INTER_WORKER_TOKEN}`
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000) // 30s timeout
+      })
 
-    if (!response.ok) {
-      throw new Error(`Transcription trigger failed: ${response.status}`)
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Transcription trigger failed: ${response.status} - ${errorText}`)
+      }
+
+      console.log('Transcription triggered successfully for job:', payload.jobId)
+      return // Success, exit retry loop
+      
+    } catch (error) {
+      console.error(`Transcription trigger attempt ${attempt} failed:`, error)
+      
+      if (attempt === maxRetries) {
+        throw error // Final attempt failed
+      }
+      
+      // Wait before retry (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000))
     }
-
-    console.log('Transcription triggered successfully for job:', payload.jobId)
-    
-  } catch (error) {
-    console.error('Failed to trigger transcription:', error)
-    // Consider implementing retry logic or dead letter queue
-    throw error
   }
+}
 }
 
 export default app

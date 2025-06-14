@@ -9,6 +9,13 @@ MAX_FILE_SIZE_MB = "500"
 CHUNK_SIZE_MB = "25"
 SUPPORTED_FORMATS = "mp3,wav,m4a,flac,ogg,mp4,avi,mov"
 
+# Secrets configured via: wrangler secret put <SECRET_NAME>
+# INTER_WORKER_TOKEN
+# CLIENT_API_KEY_1
+# CLIENT_API_KEY_2
+# CLIENT_API_KEY_3
+# VAD_WORKER_TOKEN
+
 [[kv_namespaces]]
 binding = "STT_JOBS"
 id = "0c67436e3e304e1eb111f20b6b951928"

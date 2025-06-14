@@ -5,11 +5,11 @@ main = "src/index.ts"
 
 [vars]
 ENVIRONMENT = "production"
-AZURE_OPENAI_ENDPOINT = "https://voither-openai-brazil.openai.azure.com"
+AZURE_OPENAI_ENDPOINT = "https://openai-stt-sweden.openai.azure.com/"
 AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
 WHISPER_MODEL = "whisper-1"
 MAX_RETRIES = "3"
-TIMEOUT_MS = "300000"
+TIMEOUT_MS = "600000"
 
 # Secrets configured via: wrangler secret put <SECRET_NAME>
 # AZURE_OPENAI_API_KEY
@@ -17,8 +17,8 @@ TIMEOUT_MS = "300000"
 
 [[kv_namespaces]]
 binding = "STT_JOBS"
-id = "b8e5f5a1234567890abcdef1234567890"
-preview_id = "b8e5f5a1234567890abcdef1234567891"
+id = "0c67436e3e304e1eb111f20b6b951928"
+preview_id = "596acaf3c2d14ce2b1aef43d1eed2a36"
 
 [[r2_buckets]]
 binding = "AUDIO_STORAGE"
@@ -27,7 +27,7 @@ preview_bucket_name = "stt-audio-chunks-dev"
 
 [env.development.vars]
 ENVIRONMENT = "development"
-AZURE_OPENAI_ENDPOINT = "https://voither-openai-brazil-dev.openai.azure.com"
+AZURE_OPENAI_ENDPOINT = "https://openai-stt-sweden.openai.azure.com/"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
