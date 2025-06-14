@@ -6,7 +6,7 @@ main = "src/index.ts"
 
 [vars]
 ENVIRONMENT = "production"
-AZURE_OPENAI_ENDPOINT = "https://openai-stt-sweden.openai.azure.com/"
+AZURE_OPENAI_ENDPOINT = "https://openai-stt-voither.openai.azure.com/"
 AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
 WHISPER_MODEL = "whisper-1"
 MAX_RETRIES = "3"
@@ -28,7 +28,7 @@ preview_bucket_name = "stt-audio-chunks-dev"
 
 [env.development.vars]
 ENVIRONMENT = "development"
-AZURE_OPENAI_ENDPOINT = "https://openai-stt-sweden.openai.azure.com/"
+AZURE_OPENAI_ENDPOINT = "https://openai-stt-voither.openai.azure.com/"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
