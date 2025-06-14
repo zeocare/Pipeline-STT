@@ -333,6 +333,17 @@ MIT License - Veja [LICENSE](LICENSE) para detalhes.
 
 **🎤➡️📝 Pipeline de classe mundial para transformar áudio médico em insights estruturados!**
 
+---
+
+## 👨‍💻 **Autor**
+
+**Gustavo Mendes** (@myselfgus)  
+📧 founder@healthhealth.io  
+🏢 HealthHealth.io  
+🌐 [GitHub](https://github.com/myselfgus)
+
+*STT Pipeline desenvolvido para revolucionar a transcrição médica em português brasileiro.*
+
 ### 🤝 Contribuindo
 
 1. Fork o projeto
@@ -344,3 +355,7 @@ MIT License - Veja [LICENSE](LICENSE) para detalhes.
 ### 📄 Licença
 
 MIT License - Veja [LICENSE](LICENSE) para detalhes.
+
+### 🙏 Agradecimentos
+
+Desenvolvido com assistência do Claude Code (claude.ai/code) da Anthropic.
