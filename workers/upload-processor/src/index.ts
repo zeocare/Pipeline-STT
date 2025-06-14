@@ -233,6 +233,5 @@ async function triggerTranscription(env: Bindings, payload: {
     }
   }
 }
-}
 
 export default app

@@ -1,5 +1,6 @@
 name = "stt-assembly-ner"
-route = { pattern = "stt-assembly-ner.voitherbrazil.workers.dev/*", zone_name = "voitherbrazil.workers.dev" }
+account_id = "1a481f7cdb7027c30174a692c89cbda1"
+# route = { pattern = "stt-assembly-ner.voitherbrazil.workers.dev/*", zone_name = "voitherbrazil.workers.dev" }
 compatibility_date = "2024-11-01"
 main = "src/index.ts"
 
