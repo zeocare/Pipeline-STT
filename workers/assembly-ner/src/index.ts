@@ -165,13 +165,19 @@ app.post('/process', async (c) => {
   } catch (error) {
     console.error('Assembly/NER processing error:', error)
     
-    // Try to update job status to failed (using cached payload)
-    if (payload.jobId) {
-      const jobManager = new JobManager({ kv: c.env.STT_JOBS })
-      await jobManager.markJobFailed(
-        payload.jobId, 
-        error instanceof Error ? error.message : 'Assembly/NER failed'
-      )
+    // Try to update job status to failed
+    try {
+      const body = await c.req.text()
+      const payload = JSON.parse(body)
+      if (payload.jobId) {
+        const jobManager = new JobManager({ kv: c.env.STT_JOBS })
+        await jobManager.markJobFailed(
+          payload.jobId, 
+          error instanceof Error ? error.message : 'Assembly/NER failed'
+        )
+      }
+    } catch {
+      // Ignore if can't parse payload
     }
 
     return c.json({

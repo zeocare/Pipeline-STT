@@ -48,32 +48,18 @@ export interface TranscriptionResult {
   chunkIndex: number
   startTime: number
   endTime: number
-  transcript: string
-  segments: TranscriptSegment[]
+  duration: number
+  text: string
   confidence: number
-  processingTime: number
-  speakerMapping?: SpeakerMapping
+  segments: TranscriptionSegment[]
+  language: string
 }
 
-export interface TranscriptSegment {
-  id: number
+export interface TranscriptionSegment {
   start: number
   end: number
   text: string
   confidence: number
-  words: Word[]
-  speaker?: string
-}
-
-export interface Word {
-  text: string
-  start: number
-  end: number
-  confidence: number
-}
-
-export interface SpeakerMapping {
-  [segmentId: number]: string
 }
 
 export class TranscriptionEngine {
@@ -87,305 +73,132 @@ export class TranscriptionEngine {
     const { jobId, chunks, options, onProgress } = params
     const results: TranscriptionResult[] = []
     
-    // Process chunks with controlled concurrency
-    const concurrencyLimit = 3 // Process max 3 chunks simultaneously
-    const chunkBatches = this.createBatches(chunks, concurrencyLimit)
+    // Process chunks in parallel but with concurrency limit
+    const concurrency = 3
+    const chunkBatches = this.createBatches(chunks, concurrency)
     
-    let completedChunks = 0
+    let processedCount = 0
     
     for (const batch of chunkBatches) {
-      const batchPromises = batch.map(chunk => 
-        this.processChunk({
-          chunk,
-          jobId,
-          options,
-          previousChunks: results.slice(-2) // Pass last 2 chunks for context
-        })
-      )
+      const batchPromises = batch.map(chunk => this.transcribeChunk(chunk, options))
+      const batchResults = await Promise.all(batchPromises)
       
-      const batchResults = await Promise.allSettled(batchPromises)
+      results.push(...batchResults)
+      processedCount += batch.length
       
-      for (let i = 0; i < batchResults.length; i++) {
-        const result = batchResults[i]
-        completedChunks++
-        
-        if (result.status === 'fulfilled') {
-          results.push(result.value)
-          console.log(`Chunk ${batch[i].id} processed successfully`)
-        } else {
-          console.error(`Chunk ${batch[i].id} failed:`, result.reason)
-          // Create error result to maintain chunk order
-          results.push(this.createErrorResult(batch[i], result.reason))
+      // Update progress
+      if (onProgress) {
+        const progress = Math.round((processedCount / chunks.length) * 100)
+        await onProgress(progress)
+      }
+    }
+    
+    return results.sort((a, b) => a.chunkIndex - b.chunkIndex)
+  }
+
+  private async transcribeChunk(chunk: AudioChunk, options: ProcessingOptions): Promise<TranscriptionResult> {
+    const maxRetries = this.config.maxRetries
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Get audio file from R2
+        const audioObject = await this.config.storage.get(chunk.storageKey)
+        if (!audioObject) {
+          throw new Error(`Audio chunk not found: ${chunk.storageKey}`)
         }
         
-        // Update progress
-        const progress = Math.round((completedChunks / chunks.length) * 90) // 90% for transcription
-        if (onProgress) {
-          await onProgress(progress)
+        const audioBuffer = await audioObject.arrayBuffer()
+        
+        // Call Azure OpenAI Whisper
+        const transcription = await this.callAzureOpenAI(audioBuffer, options)
+        
+        return {
+          chunkId: chunk.id,
+          chunkIndex: chunk.index,
+          startTime: chunk.startTime,
+          endTime: chunk.endTime,
+          duration: chunk.duration,
+          text: transcription.text,
+          confidence: transcription.confidence || 0.9,
+          segments: transcription.segments || [],
+          language: transcription.language || options.language
         }
+        
+      } catch (error) {
+        console.error(`Transcription attempt ${attempt} failed for chunk ${chunk.id}:`, error)
+        
+        if (attempt === maxRetries) {
+          // Return empty transcription on final failure
+          return {
+            chunkId: chunk.id,
+            chunkIndex: chunk.index,
+            startTime: chunk.startTime,
+            endTime: chunk.endTime,
+            duration: chunk.duration,
+            text: '',
+            confidence: 0,
+            segments: [],
+            language: options.language
+          }
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000))
       }
     }
     
-    // Sort results by chunk index to maintain order
-    results.sort((a, b) => a.chunkIndex - b.chunkIndex)
-    
-    return results
+    throw new Error('Unreachable code')
   }
 
-  private async processChunk(params: {
-    chunk: AudioChunk
-    jobId: string
-    options: ProcessingOptions
-    previousChunks: TranscriptionResult[]
-  }): Promise<TranscriptionResult> {
-    const { chunk, jobId, options, previousChunks } = params
-    const startTime = Date.now()
+  private async callAzureOpenAI(audioBuffer: ArrayBuffer, options: ProcessingOptions): Promise<{
+    text: string
+    confidence?: number
+    segments?: TranscriptionSegment[]
+    language?: string
+  }> {
+    const url = `${this.config.azureOpenAI.endpoint}/openai/deployments/${this.config.azureOpenAI.model}/audio/transcriptions?api-version=${this.config.azureOpenAI.apiVersion}`
     
-    console.log(`Processing chunk ${chunk.id}`)
-    
-    try {
-      // Download audio chunk from R2
-      const audioData = await this.downloadChunk(chunk.storageKey)
-      
-      // Build context from previous chunks for better continuity
-      const context = this.buildTranscriptionContext(previousChunks, options)
-      
-      // Transcribe with Azure OpenAI Whisper
-      const transcriptionResponse = await this.transcribeWithWhisper({
-        audioData,
-        options,
-        context,
-        chunk
-      })
-      
-      // Perform speaker diarization if requested
-      let speakerMapping: SpeakerMapping | undefined
-      if (options.speakers || options.minSpeakers || options.maxSpeakers) {
-        speakerMapping = await this.performSpeakerDiarization({
-          audioData,
-          transcriptionSegments: transcriptionResponse.segments,
-          options,
-          chunk
-        })
-      }
-      
-      // Apply speaker mapping to segments
-      const segmentsWithSpeakers = this.applySpeakerMapping(
-        transcriptionResponse.segments,
-        speakerMapping
-      )
-      
-      const processingTime = Date.now() - startTime
-      
-      return {
-        chunkId: chunk.id,
-        chunkIndex: chunk.index,
-        startTime: chunk.startTime,
-        endTime: chunk.endTime,
-        transcript: transcriptionResponse.text,
-        segments: segmentsWithSpeakers,
-        confidence: transcriptionResponse.confidence,
-        processingTime,
-        speakerMapping
-      }
-      
-    } catch (error) {
-      console.error(`Error processing chunk ${chunk.id}:`, error)
-      throw error
-    }
-  }
-
-  private async downloadChunk(storageKey: string): Promise<ArrayBuffer> {
-    try {
-      const object = await this.config.storage.get(storageKey)
-      if (!object) {
-        throw new Error(`Chunk not found in storage: ${storageKey}`)
-      }
-      
-      return await object.arrayBuffer()
-    } catch (error) {
-      throw new Error(`Failed to download chunk: ${error}`)
-    }
-  }
-
-  private buildTranscriptionContext(
-    previousChunks: TranscriptionResult[],
-    options: ProcessingOptions
-  ): string {
-    if (previousChunks.length === 0) {
-      return ""
-    }
-    
-    // Use last few words from previous chunks for context
-    const contextWords = previousChunks
-      .slice(-2) // Last 2 chunks
-      .flatMap(chunk => chunk.segments)
-      .slice(-20) // Last 20 segments
-      .map(segment => segment.text)
-      .join(" ")
-      .trim()
-    
-    return contextWords
-  }
-
-  private async transcribeWithWhisper(params: {
-    audioData: ArrayBuffer
-    options: ProcessingOptions
-    context: string
-    chunk: AudioChunk
-  }): Promise<WhisperResponse> {
-    const { audioData, options, context, chunk } = params
-    
-    // Prepare form data for Whisper API
+    // Create form data
     const formData = new FormData()
-    
-    // Create blob from audio data
-    const audioBlob = new Blob([audioData], { type: 'audio/mpeg' })
-    formData.append('file', audioBlob, `${chunk.id}.mp3`)
-    
-    // Whisper parameters
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' })
+    formData.append('file', audioBlob, 'audio.wav')
     formData.append('model', this.config.azureOpenAI.model)
     formData.append('language', options.language)
     formData.append('response_format', 'verbose_json')
     formData.append('timestamp_granularities[]', 'segment')
-    formData.append('timestamp_granularities[]', 'word')
     
-    if (context) {
-      formData.append('prompt', context)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'api-key': this.config.azureOpenAI.apiKey
+      },
+      body: formData,
+      signal: AbortSignal.timeout(this.config.timeoutMs)
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Azure OpenAI API error: ${response.status} - ${errorText}`)
     }
     
-    // Enhanced accuracy settings
-    if (options.enhancedAccuracy) {
-      formData.append('temperature', '0.0') // Most deterministic
-    }
+    const result = await response.json()
     
-    const url = `${this.config.azureOpenAI.endpoint}/openai/audio/transcriptions?api-version=${this.config.azureOpenAI.apiVersion}`
-    
-    let lastError: Error | null = null
-    
-    // Retry logic
-    for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
-      try {
-        console.log(`Transcription attempt ${attempt} for chunk ${chunk.id}`)
-        
-        const controller = new AbortController()
-        const timeoutId = setTimeout(
-          () => controller.abort(),
-          this.config.timeoutMs
-        )
-        
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'api-key': this.config.azureOpenAI.apiKey
-          },
-          body: formData,
-          signal: controller.signal
-        })
-        
-        clearTimeout(timeoutId)
-        
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Whisper API error (${response.status}): ${errorText}`)
-        }
-        
-        const result = await response.json() as WhisperAPIResponse
-        
-        // Transform API response to our format
-        return this.transformWhisperResponse(result, chunk)
-        
-      } catch (error) {
-        lastError = error as Error
-        console.error(`Transcription attempt ${attempt} failed for chunk ${chunk.id}:`, error)
-        
-        if (attempt < this.config.maxRetries) {
-          // Exponential backoff
-          const delay = Math.pow(2, attempt) * 1000
-          await new Promise(resolve => setTimeout(resolve, delay))
-        }
-      }
-    }
-    
-    throw new Error(`Transcription failed after ${this.config.maxRetries} attempts: ${lastError?.message}`)
-  }
-
-  private transformWhisperResponse(
-    apiResponse: WhisperAPIResponse,
-    chunk: AudioChunk
-  ): WhisperResponse {
-    const segments = apiResponse.segments.map((segment, index) => ({
-      id: index,
-      start: segment.start + chunk.startTime, // Adjust to global timeline
-      end: segment.end + chunk.startTime,
-      text: segment.text.trim(),
-      confidence: segment.avg_logprob ? Math.exp(segment.avg_logprob) : 0.8,
-      words: segment.words?.map(word => ({
-        text: word.word,
-        start: word.start + chunk.startTime,
-        end: word.end + chunk.startTime,
-        confidence: word.probability || 0.8
-      })) || []
+    // Parse Azure OpenAI response
+    const segments: TranscriptionSegment[] = (result.segments || []).map((seg: any) => ({
+      start: seg.start || 0,
+      end: seg.end || 0,
+      text: seg.text || '',
+      confidence: seg.avg_logprob ? Math.exp(seg.avg_logprob) : 0.9
     }))
     
     return {
-      text: apiResponse.text,
+      text: result.text || '',
+      confidence: result.segments ? 
+        result.segments.reduce((sum: number, seg: any) => sum + (seg.avg_logprob ? Math.exp(seg.avg_logprob) : 0.9), 0) / result.segments.length :
+        0.9,
       segments,
-      confidence: segments.reduce((sum, seg) => sum + seg.confidence, 0) / segments.length,
-      language: apiResponse.language,
-      duration: apiResponse.duration
+      language: result.language || options.language
     }
-  }
-
-  private async performSpeakerDiarization(params: {
-    audioData: ArrayBuffer
-    transcriptionSegments: TranscriptSegment[]
-    options: ProcessingOptions
-    chunk: AudioChunk
-  }): Promise<SpeakerMapping> {
-    // Simplified speaker diarization
-    // In production, you'd use a proper diarization service or model
-    
-    const { transcriptionSegments, options, chunk } = params
-    const speakerMapping: SpeakerMapping = {}
-    
-    // Simple speaker assignment based on segment patterns
-    // This is a placeholder - implement proper diarization
-    let currentSpeaker = 0
-    const maxSpeakers = options.speakers || options.maxSpeakers || 6
-    
-    for (let i = 0; i < transcriptionSegments.length; i++) {
-      const segment = transcriptionSegments[i]
-      
-      // Simple heuristic: switch speaker every few segments or on long pauses
-      if (i > 0) {
-        const prevSegment = transcriptionSegments[i - 1]
-        const pause = segment.start - prevSegment.end
-        
-        // Switch speaker if long pause (>2 seconds) or every 3-5 segments
-        if (pause > 2.0 || (i % (3 + Math.floor(Math.random() * 3)) === 0)) {
-          currentSpeaker = (currentSpeaker + 1) % maxSpeakers
-        }
-      }
-      
-      speakerMapping[segment.id] = `SPEAKER_${currentSpeaker.toString().padStart(2, '0')}`
-    }
-    
-    return speakerMapping
-  }
-
-  private applySpeakerMapping(
-    segments: TranscriptSegment[],
-    speakerMapping?: SpeakerMapping
-  ): TranscriptSegment[] {
-    if (!speakerMapping) {
-      return segments
-    }
-    
-    return segments.map(segment => ({
-      ...segment,
-      speaker: speakerMapping[segment.id] || 'SPEAKER_UNKNOWN'
-    }))
   }
 
   private createBatches<T>(items: T[], batchSize: number): T[][] {
@@ -395,50 +208,4 @@ export class TranscriptionEngine {
     }
     return batches
   }
-
-  private createErrorResult(chunk: AudioChunk, error: any): TranscriptionResult {
-    return {
-      chunkId: chunk.id,
-      chunkIndex: chunk.index,
-      startTime: chunk.startTime,
-      endTime: chunk.endTime,
-      transcript: `[ERROR: Failed to transcribe chunk ${chunk.id}]`,
-      segments: [],
-      confidence: 0,
-      processingTime: 0
-    }
-  }
-}
-
-// Azure OpenAI Whisper API Response Types
-interface WhisperAPIResponse {
-  text: string
-  segments: WhisperAPISegment[]
-  language: string
-  duration: number
-}
-
-interface WhisperAPISegment {
-  id: number
-  start: number
-  end: number
-  text: string
-  words?: WhisperAPIWord[]
-  avg_logprob?: number
-}
-
-interface WhisperAPIWord {
-  word: string
-  start: number
-  end: number
-  probability?: number
-}
-
-// Internal Response Types
-interface WhisperResponse {
-  text: string
-  segments: TranscriptSegment[]
-  confidence: number
-  language: string
-  duration: number
 }

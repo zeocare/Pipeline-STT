@@ -286,8 +286,8 @@ export class AudioProcessor {
   private async uploadChunks(chunks: AudioChunk[], originalFile: File): Promise<void> {
     const arrayBuffer = await originalFile.arrayBuffer()
     
-    // For simplicity, we're storing the whole file for each chunk with metadata
-    // In production, you'd actually split the audio file
+    // Store full file for each chunk (simplified chunking for MVP)
+    // Each chunk contains timing metadata for proper transcription
     for (const chunk of chunks) {
       try {
         await this.config.storage.put(chunk.storageKey, arrayBuffer, {

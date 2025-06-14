@@ -199,7 +199,7 @@ async function triggerTranscription(env: Bindings, payload: {
   options: any
 }) {
   const maxRetries = 3
-  const transcriptionWorkerUrl = `https://stt-transcription-engine.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
+  const transcriptionWorkerUrl = `https://stt-transcription-engine.gms-1a4.workers.dev`
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

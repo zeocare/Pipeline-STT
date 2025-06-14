@@ -119,10 +119,16 @@ app.post('/process', async (c) => {
   } catch (error) {
     console.error('Transcription processing error:', error)
     
-    // Try to update job status to failed (using cached payload)  
-    if (payload.jobId) {
-      const jobManager = new JobManager({ kv: c.env.STT_JOBS })
-      await jobManager.markJobFailed(payload.jobId, error instanceof Error ? error.message : 'Unknown error')
+    // Try to update job status to failed
+    try {
+      const body = await c.req.text()
+      const payload = JSON.parse(body)
+      if (payload.jobId) {
+        const jobManager = new JobManager({ kv: c.env.STT_JOBS })
+        await jobManager.markJobFailed(payload.jobId, error instanceof Error ? error.message : 'Unknown error')
+      }
+    } catch {
+      // Ignore if can't parse payload
     }
 
     return c.json({
@@ -261,7 +267,7 @@ async function triggerAssembly(env: Bindings, payload: {
   options: any
 }) {
   const maxRetries = 3
-  const assemblyWorkerUrl = `https://stt-assembly-ner.${env.ENVIRONMENT === 'development' ? 'dev.voitherbrazil' : 'voitherbrazil'}.workers.dev`
+  const assemblyWorkerUrl = `https://stt-assembly-ner.gms-1a4.workers.dev`
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

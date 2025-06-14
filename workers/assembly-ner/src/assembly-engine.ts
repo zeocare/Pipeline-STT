@@ -1,3 +1,22 @@
+export interface TranscriptionResult {
+  chunkId: string
+  chunkIndex: number
+  startTime: number
+  endTime: number
+  duration: number
+  text: string
+  confidence: number
+  segments: TranscriptionSegment[]
+  language: string
+}
+
+export interface TranscriptionSegment {
+  start: number
+  end: number
+  text: string
+  confidence: number
+}
+
 export interface AssembledTranscript {
   fullText: string
   segments: AssembledSegment[]
@@ -8,308 +27,163 @@ export interface AssembledTranscript {
 }
 
 export interface AssembledSegment {
-  id: number
-  startTime: number
-  endTime: number
-  speakerId: string
+  start: number
+  end: number
   text: string
+  speaker: string
   confidence: number
-  words: Word[]
-  chunkIndex: number
+  originalChunk: string
 }
 
 export interface Speaker {
   id: string
-  label: string
-  totalSpeakingTime: number
-  segmentCount: number
+  name: string
+  totalSpeechTime: number
+  segments: number
   averageConfidence: number
 }
 
-export interface Word {
-  text: string
-  start: number
-  end: number
-  confidence: number
-}
-
-export interface TranscriptionResult {
-  chunkId: string
-  chunkIndex: number
-  startTime: number
-  endTime: number
-  transcript: string
-  segments: TranscriptSegment[]
-  confidence: number
-  processingTime: number
-  speakerMapping?: SpeakerMapping
-}
-
-export interface TranscriptSegment {
-  id: number
-  start: number
-  end: number
-  text: string
-  confidence: number
-  words: Word[]
-  speaker?: string
-}
-
-export interface SpeakerMapping {
-  [segmentId: number]: string
-}
-
-export interface AssemblyOptions {
-  language: string
-  speakers?: number | null
-  minSpeakers?: number | null
-  maxSpeakers?: number | null
-  format: string
-  enhancedAccuracy: boolean
-}
-
 export class AssemblyEngine {
-  
   async assembleTranscript(params: {
     transcriptionResults: TranscriptionResult[]
     originalChunks: any[]
-    options: AssemblyOptions
+    options: any
   }): Promise<AssembledTranscript> {
+    const { transcriptionResults } = params
     
-    const { transcriptionResults, originalChunks, options } = params
-    
-    console.log(`Assembling transcript from ${transcriptionResults.length} chunks`)
-    
-    // Step 1: Sort chunks by index to maintain temporal order
+    // Sort by chunk index to maintain order
     const sortedResults = transcriptionResults.sort((a, b) => a.chunkIndex - b.chunkIndex)
     
-    // Step 2: Create global speaker mapping across chunks
-    const globalSpeakerMapping = await this.createGlobalSpeakerMapping(sortedResults)
+    // Combine all segments with timing adjustment
+    const allSegments: AssembledSegment[] = []
+    let currentTimeOffset = 0
     
-    // Step 3: Merge segments with speaker continuity
-    const assembledSegments = await this.mergeSegmentsWithContinuity({
-      sortedResults,
-      globalSpeakerMapping,
-      options
-    })
+    for (const result of sortedResults) {
+      // Add segments from this chunk with proper timing
+      for (const segment of result.segments) {
+        allSegments.push({
+          start: currentTimeOffset + segment.start,
+          end: currentTimeOffset + segment.end,
+          text: segment.text.trim(),
+          speaker: this.detectSpeaker(segment, result.chunkIndex),
+          confidence: segment.confidence,
+          originalChunk: result.chunkId
+        })
+      }
+      
+      // Update time offset for next chunk
+      currentTimeOffset += result.duration
+    }
     
-    // Step 4: Generate speaker statistics
-    const speakers = this.generateSpeakerStats(assembledSegments)
+    // Merge adjacent segments from same speaker
+    const mergedSegments = this.mergeAdjacentSegments(allSegments)
     
-    // Step 5: Calculate overall metrics
-    const metrics = this.calculateOverallMetrics(assembledSegments, sortedResults)
+    // Identify speakers and create speaker map
+    const speakers = this.identifySpeakers(mergedSegments)
     
-    // Step 6: Generate full text
-    const fullText = this.generateFullText(assembledSegments, speakers)
+    // Build full text
+    const fullText = mergedSegments
+      .map(seg => `[${seg.speaker}] ${seg.text}`)
+      .join('\n\n')
+    
+    // Calculate statistics
+    const totalDuration = Math.max(...mergedSegments.map(s => s.end), 0)
+    const overallConfidence = mergedSegments.length > 0 ? 
+      mergedSegments.reduce((sum, seg) => sum + seg.confidence, 0) / mergedSegments.length : 0
+    const wordCount = mergedSegments.reduce((count, seg) => count + seg.text.split(' ').length, 0)
     
     return {
       fullText,
-      segments: assembledSegments,
+      segments: mergedSegments,
       speakers,
-      totalDuration: metrics.totalDuration,
-      overallConfidence: metrics.overallConfidence,
-      wordCount: metrics.wordCount
-    }
-  }
-  
-  private async createGlobalSpeakerMapping(
-    sortedResults: TranscriptionResult[]
-  ): Promise<Map<string, string>> {
-    
-    const globalMapping = new Map<string, string>()
-    const speakerClusters = new Map<string, string[]>()
-    
-    // Collect all local speaker IDs from each chunk
-    for (const result of sortedResults) {
-      if (result.speakerMapping) {
-        for (const [segmentId, localSpeakerId] of Object.entries(result.speakerMapping)) {
-          const key = `${result.chunkId}_${segmentId}`
-          
-          if (!speakerClusters.has(localSpeakerId)) {
-            speakerClusters.set(localSpeakerId, [])
-          }
-          speakerClusters.get(localSpeakerId)!.push(key)
-        }
-      }
-    }
-    
-    // Create global speaker mapping using simple clustering
-    let globalSpeakerIndex = 0
-    const processedLocalSpeakers = new Set<string>()
-    
-    for (const result of sortedResults) {
-      if (result.speakerMapping) {
-        for (const [segmentId, localSpeakerId] of Object.entries(result.speakerMapping)) {
-          const localSpeakerKey = `${result.chunkIndex}_${localSpeakerId}`
-          
-          if (!processedLocalSpeakers.has(localSpeakerKey)) {
-            // Assign global speaker ID
-            const globalSpeakerId = `SPEAKER_${globalSpeakerIndex.toString().padStart(2, '0')}`
-            
-            // Map all segments with this local speaker to global speaker
-            for (const segment of result.segments) {
-              if (segment.speaker === localSpeakerId) {
-                const key = `${result.chunkId}_${segment.id}`
-                globalMapping.set(key, globalSpeakerId)
-              }
-            }
-            
-            processedLocalSpeakers.add(localSpeakerKey)
-            globalSpeakerIndex++
-          }
-        }
-      } else {
-        // Handle segments without speaker mapping
-        for (const segment of result.segments) {
-          const key = `${result.chunkId}_${segment.id}`
-          globalMapping.set(key, 'SPEAKER_00') // Default to first speaker
-        }
-      }
-    }
-    
-    return globalMapping
-  }
-  
-  private async mergeSegmentsWithContinuity(params: {
-    sortedResults: TranscriptionResult[]
-    globalSpeakerMapping: Map<string, string>
-    options: AssemblyOptions
-  }): Promise<AssembledSegment[]> {
-    
-    const { sortedResults, globalSpeakerMapping, options } = params
-    const assembledSegments: AssembledSegment[] = []
-    let globalSegmentId = 0
-    
-    for (const result of sortedResults) {
-      for (const segment of result.segments) {
-        const segmentKey = `${result.chunkId}_${segment.id}`
-        const globalSpeakerId = globalSpeakerMapping.get(segmentKey) || 'SPEAKER_00'
-        
-        // Create assembled segment
-        const assembledSegment: AssembledSegment = {
-          id: globalSegmentId++,
-          startTime: segment.start,
-          endTime: segment.end,
-          speakerId: globalSpeakerId,
-          text: segment.text.trim(),
-          confidence: segment.confidence,
-          words: segment.words || [],
-          chunkIndex: result.chunkIndex
-        }
-        
-        // Check for speaker continuity and merge if appropriate
-        const lastSegment = assembledSegments[assembledSegments.length - 1]
-        if (this.shouldMergeSegments(lastSegment, assembledSegment)) {
-          // Merge with previous segment
-          lastSegment.endTime = assembledSegment.endTime
-          lastSegment.text += ` ${assembledSegment.text}`
-          lastSegment.words.push(...assembledSegment.words)
-          lastSegment.confidence = (lastSegment.confidence + assembledSegment.confidence) / 2
-        } else {
-          assembledSegments.push(assembledSegment)
-        }
-      }
-    }
-    
-    return assembledSegments
-  }
-  
-  private shouldMergeSegments(
-    lastSegment: AssembledSegment | undefined,
-    currentSegment: AssembledSegment
-  ): boolean {
-    
-    if (!lastSegment) return false
-    
-    const timeDiff = currentSegment.startTime - lastSegment.endTime
-    const sameSpeaker = lastSegment.speakerId === currentSegment.speakerId
-    const shortPause = timeDiff < 1.0 // Less than 1 second gap
-    const shortTexts = lastSegment.text.length < 50 && currentSegment.text.length < 50
-    
-    return sameSpeaker && shortPause && shortTexts
-  }
-  
-  private generateSpeakerStats(segments: AssembledSegment[]): Speaker[] {
-    const speakerStats = new Map<string, {
-      totalTime: number
-      segmentCount: number
-      totalConfidence: number
-    }>()
-    
-    // Calculate stats for each speaker
-    for (const segment of segments) {
-      const stats = speakerStats.get(segment.speakerId) || {
-        totalTime: 0,
-        segmentCount: 0,
-        totalConfidence: 0
-      }
-      
-      stats.totalTime += segment.endTime - segment.startTime
-      stats.segmentCount += 1
-      stats.totalConfidence += segment.confidence
-      
-      speakerStats.set(segment.speakerId, stats)
-    }
-    
-    // Convert to Speaker objects
-    const speakers: Speaker[] = []
-    for (const [speakerId, stats] of speakerStats.entries()) {
-      speakers.push({
-        id: speakerId,
-        label: speakerId,
-        totalSpeakingTime: stats.totalTime,
-        segmentCount: stats.segmentCount,
-        averageConfidence: stats.totalConfidence / stats.segmentCount
-      })
-    }
-    
-    // Sort by total speaking time (descending)
-    speakers.sort((a, b) => b.totalSpeakingTime - a.totalSpeakingTime)
-    
-    return speakers
-  }
-  
-  private calculateOverallMetrics(
-    segments: AssembledSegment[],
-    transcriptionResults: TranscriptionResult[]
-  ): {
-    totalDuration: number
-    overallConfidence: number
-    wordCount: number
-  } {
-    
-    let totalDuration = 0
-    let totalConfidence = 0
-    let wordCount = 0
-    
-    if (segments.length > 0) {
-      totalDuration = Math.max(...segments.map(s => s.endTime))
-      totalConfidence = segments.reduce((sum, s) => sum + s.confidence, 0) / segments.length
-      wordCount = segments.reduce((sum, s) => sum + s.text.split(' ').length, 0)
-    }
-    
-    return {
       totalDuration,
-      overallConfidence: totalConfidence,
+      overallConfidence,
       wordCount
     }
   }
   
-  private generateFullText(segments: AssembledSegment[], speakers: Speaker[]): string {
-    const textParts: string[] = []
+  private detectSpeaker(segment: TranscriptionSegment, chunkIndex: number): string {
+    const text = segment.text.toLowerCase()
     
-    for (const segment of segments) {
-      const speakerLabel = segment.speakerId
-      const timestamp = this.formatTimestamp(segment.startTime)
-      textParts.push(`[${timestamp}] ${speakerLabel}: ${segment.text}`)
+    // Detect if this sounds like a doctor (professional language)
+    const doctorKeywords = ['paciente', 'medicamento', 'prescrevo', 'diagnóstico', 'sintomas', 'exame', 'tratamento']
+    const patientKeywords = ['dor', 'sinto', 'não consigo', 'me sinto', 'está doendo', 'tenho']
+    
+    const doctorScore = doctorKeywords.filter(keyword => text.includes(keyword)).length
+    const patientScore = patientKeywords.filter(keyword => text.includes(keyword)).length
+    
+    if (doctorScore > patientScore) {
+      return 'Médico'
+    } else if (patientScore > 0) {
+      return 'Paciente'
     }
     
-    return textParts.join('\n')
+    // Fallback: alternate between speakers based on chunk
+    return chunkIndex % 2 === 0 ? 'Médico' : 'Paciente'
   }
   
-  private formatTimestamp(seconds: number): string {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = Math.floor(seconds % 60)
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
+  private mergeAdjacentSegments(segments: AssembledSegment[]): AssembledSegment[] {
+    if (segments.length === 0) return []
+    
+    const merged: AssembledSegment[] = []
+    let current = { ...segments[0] }
+    
+    for (let i = 1; i < segments.length; i++) {
+      const next = segments[i]
+      
+      // Merge if same speaker and close in time (less than 2 seconds gap)
+      if (current.speaker === next.speaker && (next.start - current.end) < 2.0) {
+        current.end = next.end
+        current.text += ' ' + next.text
+        current.confidence = (current.confidence + next.confidence) / 2
+      } else {
+        merged.push(current)
+        current = { ...next }
+      }
+    }
+    
+    merged.push(current)
+    return merged
+  }
+  
+  private identifySpeakers(segments: AssembledSegment[]): Speaker[] {
+    const speakerMap = new Map<string, {
+      totalTime: number
+      segmentCount: number
+      confidenceSum: number
+    }>()
+    
+    // Calculate speaker statistics
+    for (const segment of segments) {
+      const speaker = segment.speaker
+      const duration = segment.end - segment.start
+      
+      if (!speakerMap.has(speaker)) {
+        speakerMap.set(speaker, {
+          totalTime: 0,
+          segmentCount: 0,
+          confidenceSum: 0
+        })
+      }
+      
+      const stats = speakerMap.get(speaker)!
+      stats.totalTime += duration
+      stats.segmentCount += 1
+      stats.confidenceSum += segment.confidence
+    }
+    
+    // Create speaker objects
+    const speakers: Speaker[] = []
+    for (const [speakerId, stats] of speakerMap) {
+      speakers.push({
+        id: speakerId,
+        name: speakerId,
+        totalSpeechTime: stats.totalTime,
+        segments: stats.segmentCount,
+        averageConfidence: stats.confidenceSum / stats.segmentCount
+      })
+    }
+    
+    return speakers.sort((a, b) => b.totalSpeechTime - a.totalSpeechTime)
   }
 }
