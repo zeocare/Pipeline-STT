@@ -8,30 +8,23 @@
 [![Quality](https://img.shields.io/badge/Code%20Quality-Enterprise%20Grade-brightgreen.svg)](https://github.com/zeocare/Pipeline-STT)
 [![PheSTT](https://img.shields.io/badge/Pipeline-PheSTT%20v1.0-purple.svg)](https://github.com/zeocare/Pipeline-STT)
 
-**🚀 PRODUCTION-READY** - Pipeline PheSTT (Phenomenological Speech-to-Text) é um sistema moderno de transcrição com foco fenomenológico em consultas médicas/psiquiátricas em português brasileiro. Utiliza **Azure OpenAI** (Whisper + GPT-4o-transcribe) + **Cloudflare Workers** para transcrição, diarização de speakers e extração de entidades médicas com compreensão contextual profunda.
+**🚀 PRODUCTION-READY** - Pipeline PheSTT (Phenomenological Speech-to-Text) é um sistema moderno de transcrição para consultas médicas/psiquiátricas em português brasileiro. Utiliza **Azure OpenAI** (Whisper + GPT-4o-transcribe) + **Cloudflare Workers** para transcrição precisa, diarização de speakers e extração de entidades médicas.
 
 > ✅ **Status**: Totalmente implementado e testado  
 > 🎯 **Quality Score**: 8.5/10 - Enterprise-grade code  
 > 🏥 **Medical Focus**: Otimizado para consultas em português brasileiro  
 > ⚡ **Performance**: ~2-5 min para arquivos de 10-30 minutos
 
-## 🧠 **O que é o Pipeline PheSTT?**
+## 🎤 **O que é o Pipeline PheSTT?**
 
-**PheSTT** (Phenomenological Speech-to-Text) é uma abordagem revolucionária que vai além da simples transcrição de áudio. Inspirado na **fenomenologia médica**, o sistema compreende não apenas *o que* é dito, mas *como* é dito, capturando nuances emocionais, contextuais e relacionais das consultas médicas.
-
-### **🎯 Diferencial Fenomenológico:**
-- **Compreensão Contextual**: Analisa o *significado* por trás das palavras
-- **Análise Relacional**: Identifica dinâmicas médico-paciente
-- **Marcadores Emocionais**: Detecta estados afetivos na fala
-- **Estruturação Semântica**: Organiza informações por relevância clínica
+**PheSTT** (Phenomenological Speech-to-Text) é um sistema de transcrição de áudio para consultas médicas/psiquiátricas em português brasileiro. O nome reflete a abordagem cuidadosa na captura precisa da fala em contextos clínicos.
 
 ## 🌟 Características Principais
 
 - **🎤 Transcrição Avançada**: Whisper Large-v3 + GPT-4o-transcribe (2025-03-20)
 - **👥 Speaker Diarization**: Identificação automática de speakers (médico/paciente)
-- **🧠 Análise Fenomenológica**: Compreensão contextual e emocional profunda
 - **🏥 Medical NER**: Extração de medicações, sintomas, procedimentos em português
-- **📝 Múltiplos Formatos**: JSON, TXT, SRT, VTT, Medical JSON, Phenomenological JSON
+- **📝 Múltiplos Formatos**: JSON, TXT, SRT, VTT, Medical JSON
 - **☁️ Escalável**: Cloudflare Workers + Azure AI Services
 - **🇧🇷 LGPD Compliance**: Processamento em território brasileiro
 - **⚡ Tempo Real**: Processamento de arquivos até 500MB
@@ -158,7 +151,7 @@ curl https://stt-upload-processor.voitherbrazil.workers.dev/status/{jobId}
 curl https://stt-assembly-ner.voitherbrazil.workers.dev/download/{jobId}/medical_json
 ```
 
-## 🧠 Exemplo de Saída Phenomenological JSON
+## 🏥 Exemplo de Saída Medical JSON
 
 ```json
 {
@@ -166,31 +159,12 @@ curl https://stt-assembly-ner.voitherbrazil.workers.dev/download/{jobId}/medical
     "id": "job_abc123",
     "date": "2025-06-13T08:00:00Z",
     "duration": 1800,
-    "participants": 2,
-    "phenomenological_context": "anxiety_focused_consultation"
+    "participants": 2
   },
   "clinical_summary": {
     "chief_complaint": "Paciente relata ansiedade e insônia há 3 semanas",
     "assessment": "Quadro compatível com transtorno de ansiedade generalizada",
     "plan": "Iniciar sertralina 50mg 1x ao dia, retorno em 2 semanas"
-  },
-  "phenomenological_analysis": {
-    "emotional_markers": {
-      "patient_affect": ["ansiedade", "preocupação", "cansaço"],
-      "doctor_tone": ["acolhedor", "profissional", "explicativo"],
-      "emotional_dynamics": "crescente confiança do paciente durante consulta"
-    },
-    "relational_patterns": {
-      "communication_style": "colaborativa",
-      "patient_engagement": "alta",
-      "therapeutic_alliance": "forte",
-      "power_dynamics": "equilibrada"
-    },
-    "contextual_insights": {
-      "lived_experience": "impacto significativo na rotina diária",
-      "meaning_making": "busca por compreensão da condição",
-      "temporal_experience": "sintomas recentes mas intensos"
-    }
   },
   "medical_entities": {
     "medications": ["sertralina"],
@@ -201,8 +175,7 @@ curl https://stt-assembly-ner.voitherbrazil.workers.dev/download/{jobId}/medical
   "quality_metrics": {
     "transcription_confidence": 0.95,
     "medical_entity_coverage": 0.87,
-    "phenomenological_depth": 0.93,
-    "contextual_understanding": 0.89
+    "completeness_score": 0.92
   }
 }
 ```
@@ -363,7 +336,7 @@ MIT License - Veja [LICENSE](LICENSE) para detalhes.
 
 ---
 
-**🎤➡️🧠📝 Pipeline PheSTT: Transformando áudio médico em insights fenomenológicos estruturados com IA de última geração!**
+**🎤➡️📝 Pipeline PheSTT: Transformando áudio médico em transcrições estruturadas com IA de última geração!**
 
 ---
 
@@ -374,7 +347,7 @@ MIT License - Veja [LICENSE](LICENSE) para detalhes.
 🏢 HealthHealth.io  
 🌐 [GitHub](https://github.com/myselfgus)
 
-*Pipeline PheSTT desenvolvido para revolucionar a transcrição médica fenomenológica em português brasileiro.*
+*Pipeline PheSTT desenvolvido para transcrição médica precisa em português brasileiro.*
 
 ### 🤝 Contribuindo
 
